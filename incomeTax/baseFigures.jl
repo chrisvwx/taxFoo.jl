@@ -122,11 +122,15 @@ function plotYearAnim(year,mstatus)
                xlabel="Incomes in 2024 dollars\n",
                ylabel="\nTax rate");
     if size(brackets[year][mstatus])[1]>0
-        plot!(plt,pltTx[:,1],pltTx[:,2],label=string(year)*" brackets",linewidth=2.5)
+        plot!(plt,pltTx[:,1],pltTx[:,2],label=string(year)*" brackets",
+              linewidth=2.5,linecolor=:blue)
     end
-    plot!(plt,incomes,tax1, linewidth=2.5,label=" w/o ded")
     if year>=1944
-        plot!(plt,incomes,taxD, linewidth=2.5,label=" with Deductions")
+        plot!(plt,incomes,tax1, linewidth=2.5,label=" w/o deduction",linecolor=:red)
+        plot!(plt,incomes,taxD, linewidth=2.5,label=" w/ std deduction",
+              linecolor=:green)
+    else
+        plot!(plt,incomes,tax1, linewidth=2.5,label=" effective tax",linecolor=:red)
     end
     annotate!(plt,4e4, 80, string(year), font(48))
 end

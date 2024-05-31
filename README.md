@@ -4,7 +4,8 @@
 Using data from
 [taxfoundation.org](https://taxfoundation.org/data/all/federal/historical-income-tax-rates-brackets/)
 and other sources, this package provides a few tools to inspect
-historical US income tax brackets and standard deductions.
+historical US income tax brackets and standard deductions. There may
+be errors; use with caution!
 
 ![Brackets and Taxsim](incomeTax/2023bracketsAndTaxsim.png)
 
