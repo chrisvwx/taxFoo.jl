@@ -180,17 +180,46 @@ savefig("fortyYearIncrements.png")
 
 
 
+# bSizes  is not exported from taxFoo at present.
+
+# plot(bSizes[:,1],bSizes[:,2],
+#      legend_position=false,
+#      xtickfont =font(12),
+#      ytickfont =font(12),
+#      titlefont =font(12),
+#      xlabel="\nYear",
+#      title="Number of income tax brackets\n")
 
 
-plot(bSizes[:,1],bSizes[:,2],
-     legend_position=false,
-     xtickfont =font(12),
-     ytickfont =font(12),
-     titlefont =font(12),
-     xlabel="\nYear",
-     title="Number of income tax brackets\n")
-savefig("numberOfBrackets.png")
 
 
+function getRate(year,mstatus,incomes)
+    rate1(income) = rateWithDed(income,brackets, dedD, year,mstatus)
+    return rate1.(incomes)
+end
+incomes = round.(10 .^collect(3:.1:8));
+Nincomes = length(incomes)
+statusStrs = ["mfj", "mfs", "single", "hoh"]
+yearBeg = firstYear(brackets)
+yearEnd = lastYear(brackets)
 
+for status = 1:4
+    io = open(statusStrs[status]*".csv","w")
+    print(io,"Incomes")
+    for i=1:Nincomes
+        thisIncome = Int64(round(incomes[i]))
+        print(io,", $thisIncome")
+    end
+    println(io,"")
+    for year=yearBeg:yearEnd
+        rates = getRate(year,status,incomes)
+        print(io,"$year")
+        for i=1:Nincomes
+            thisrate = round(rates[i]*100)/100
+            print(io,", $thisrate")
+        end
+        println(io,"")
+    end
+    close(io)
+end
 

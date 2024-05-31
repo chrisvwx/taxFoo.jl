@@ -385,36 +385,6 @@ bracketsInPlotForm(allBrackets,year::Integer,mstatus::Integer) =
     bracketsInPlotForm(allBrackets[year][mstatus])
 
 
-#=  printing CSV tables
-
-function getRate(year,status,incomes)
-    rate1(income) = rate(income,brackets[year][status])
-    return rate1.(incomes)
-end
-incomes = round.(10 .^collect(3:.1:8));
-Nincomes = length(incomes)
-statusStrs = ["mfj", "mfs", "single", "hoh"]
-
-for status = 1:4
-    io = open(statusStrs[status]*".csv","w")
-    print(io,"Incomes")
-    for i=1:Nincomes
-        thisIncome = Int64(round(incomes[i]))
-        print(io,", $thisIncome")
-    end
-    println(io,"")
-    for year=firstYear:lastYear
-        rates = getRate(year,status,incomes)
-        print(io,"$year")
-        for i=1:Nincomes
-            thisrate = round(rates[i]*100)/100
-            print(io,", $thisrate")
-        end
-        println(io,"")
-    end
-    close(io)
-end
-=#
 
 end # module taxFoo
 
