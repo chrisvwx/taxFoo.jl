@@ -16,16 +16,15 @@ from [Taxsim](https://www.nber.org/research/data/taxsim). All data are
 for the filing status "married filing jointly", other filing statuses
 are similar. Taxsim includes other taxes other than the basic income
 tax brackets and deductions (for example FICA taxes), but does not
-provide data earlier than 1960. We will continue looking at and
-comparing with Taxsim, but will not refer to it in the rest of this
-README. 
+provide data earlier than 1960. Taxsim is a wonderful tool which
+we we will continue comparing with and working to understand, but we
+will not refer to it in the rest of this README. 
 
 The next figure shows an animation of US income tax from 1862 to 2024,
 with all incomes converted into 2024 dollars using
 [CPI](https://www.minneapolisfed.org/about-us/monetary-policy/inflation-calculator/consumer-price-index-1800-)
-data from the Minneapolis Fed. 
-There's lotsa history going on in this
-graph!
+data from the Minneapolis Fed.  There's so much history in this
+animation that it's almost hard to talk about.
 
 ![Animated tax brackts](incomeTax/animatedBrackets.gif)
 

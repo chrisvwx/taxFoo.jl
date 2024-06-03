@@ -157,7 +157,7 @@ gif(anim, "animatedBrackets.gif", fps = 6)
 =#
 function plotYear(plt,incomes,year,mstatus)
     tax1 = rateWithDed(incomes, brackets, dedD, year, mstatus)
-    plot!(plt,incomes,tax1,label=string(year)*" effective",linewidth=2.5)
+    plot!(plt,incomes,tax1,label=string(year),linewidth=2.5)
 end
 ytickLabels = (collect(0:20:80), ["0%" "20%" "40%" "60%" "80%"])
 xtickLabels = (10 .^collect(4:7), ["\$10k" "\$100k" "\$1M" "\$10M"])

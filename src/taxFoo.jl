@@ -231,7 +231,7 @@ end
 function rateWithDed(income::Real,allBrackets, dedD, year, mstatus)
     deduction = 0;
     if year >=1944 && year < 1970
-        deduction = .1 * income
+        deduction = min(.1 * income,1000)
     elseif year>=1970
         deduction = dedD[year][mstatus]
     end
