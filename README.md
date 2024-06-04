@@ -6,7 +6,7 @@ Using data from
 and other sources, this package provides a few tools to inspect
 historical US income tax brackets and standard deductions. 
 The initial goal of this package was the following rough visualizations. 
-The code and data were together into a Julia package to show
+The code and data were put together into a Julia package to show
 how the plots were produced. There may be errors; use with caution!
 
 ![Brackets and Taxsim](incomeTax/2023bracketsAndTaxsim.png)
@@ -20,13 +20,12 @@ are similar. Taxsim includes other taxes other than the basic income
 tax brackets and deductions (for example FICA taxes), but does not
 provide data earlier than 1960. Taxsim is a wonderful tool which
 we we will continue comparing with and working to understand, but we
-will not refer to it in the rest of this README. 
+will not use or refer to it in the rest of this README. 
 
 The next figure shows an animation of US income tax from 1862 to 2024,
 with all incomes converted into 2024 dollars using
 [CPI](https://www.minneapolisfed.org/about-us/monetary-policy/inflation-calculator/consumer-price-index-1800-)
-data from the Minneapolis Fed.  There's so much history in this
-animation that it's almost hard to talk about.
+data from the Minneapolis Fed.  
 
 ![Animated tax brackts](incomeTax/animatedBrackets.gif)
 
