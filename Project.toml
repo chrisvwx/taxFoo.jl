@@ -1,9 +1,7 @@
 name = "taxFoo"
 uuid = "e6769b6d-a3fc-4d98-91e8-ad4b4b579fb3"
 authors = ["Chris Peel <chris.peel@ieee.org>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
-DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
-Taxsim = "59040a2c-5e82-4c13-ac8f-a77670789620"

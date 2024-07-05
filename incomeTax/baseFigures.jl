@@ -4,7 +4,7 @@ using Plots
 using Taxsim
 using DataFrames
 
-allBrackets,deductionsD,cpiDict = initTables();
+allBrackets,deductionsD,ssD,hiD,cpiDict = initTables();
 brackets = inflationLevelBrackets(allBrackets,cpiDict,2024);
 dedD = inflationLevelDeductions(deductionsD,cpiDict,2024);
 
@@ -14,14 +14,14 @@ year = 2023;
 mstatus = 1;
 incomes = round.(10 .^collect(3.4:.005:7.1));
 tax = incomeRate(incomes, allBrackets, year, mstatus);
-taxD = rateWithDed(incomes, allBrackets, deductionsD, year, mstatus);
+taxD = taxRate(incomes, allBrackets, deductionsD, year, mstatus);
 pltTx = bracketsInPlotForm(allBrackets, year, mstatus);
 
 map = [2 6 1 1];
 #incPast = inflationCalc(incomes,2024,year,cpiDict);
 incPast = incomes;
 in = DataFrame(year=year, mstat=map[mstatus], pwages=incPast);
-out= taxsim32(in);
+out= taxsim35(in);
 taxsimrate = out.fiitax ./ incPast*100;
 
 
@@ -40,11 +40,11 @@ plt = plot(xscale=:log10,legend_position=:bottomright,
            xlabel="Income (log axis)\n",
            ylabel="\nTax rate");
 plot!(plt,pltTx[:,1],pltTx[:,2],label=string(year)*" brackets",linewidth=2.5)
-plot!(plt,incomes,tax,label=string(year)*" effective tax w/o deduction",linewidth=2.5)
-plot!(plt,incomes,taxD,label=string(year)*" effective tax with deduction",linewidth=2.5)
-plot!(plt,incomes,taxsimrate,label=string(year)*" rate from Taxsim",linewidth=2.5)
+plot!(plt,incomes,tax,label=string(year)*" tax w/o deduction from taxFoo.jl",linewidth=2.5)
+plot!(plt,incomes,taxD,label=string(year)*" tax w deduction from taxFoo.jl",linewidth=2.5)
+plot!(plt,incomes,taxsimrate,label=string(year)*" tax from Taxsim v35",linewidth=2.5)
 #annotate!(plt,7e3, 7,("c.im/@chrisp", 7,:grey,:center))
-savefig("2023bracketsAndTaxsim.png")
+savefig(string(year)*"bracketsAndTaxsim.png")
 
 
 
@@ -54,7 +54,7 @@ year = 1970;
 mstatus = 1;
 incomes = round.(10 .^collect(3.5:.01:7.1));
 tax = incomeRate(incomes, brackets, year, mstatus);
-taxD = rateWithDed(incomes, brackets, dedD, year, mstatus);
+taxD = taxRate(incomes, brackets, dedD, year, mstatus);
 pltTx = bracketsInPlotForm(brackets, year, mstatus);
 ytickLabels = (collect(0:20:80), ["0%" "20%" "40%" "60%" "80%"])
 xtickLabels = (10 .^collect(4:7), ["\$10k" "\$100k" "\$1M" "\$10M"])
@@ -83,10 +83,10 @@ plot!(plt,incomes,taxD,label=string(year)*" effective tax with deduction",linewi
 =#
 year = 2024
 incomes = round.(10 .^collect(3.5:.1:7.5));
-tax1 = rateWithDed(incomes, brackets, dedD, year, 1)
-tax2 = rateWithDed(incomes, brackets, dedD, year, 2)
-tax3 = rateWithDed(incomes, brackets, dedD, year, 3)
-tax4 = rateWithDed(incomes, brackets, dedD, year, 4)
+tax1 = taxRate(incomes, brackets, dedD, year, 1)
+tax2 = taxRate(incomes, brackets, dedD, year, 2)
+tax3 = taxRate(incomes, brackets, dedD, year, 3)
+tax4 = taxRate(incomes, brackets, dedD, year, 4)
 #plt = plot(xscale=:log10,legend_position=false);
 plt = plot(xscale=:log10);
 plot!(plt,incomes,tax1,linecolor=:blue,label="MfJ")
@@ -102,7 +102,7 @@ plot!(plt,incomes,tax4,linecolor=:black,label="HoH")
 function plotYearAnim(year,mstatus)
     tax1 = incomeRate(incomes, brackets, year, mstatus);
     if year>=1944
-        taxD = rateWithDed(incomes, brackets, dedD, year, mstatus);
+        taxD = taxRate(incomes, brackets, dedD, year, mstatus);
     end
     if size(brackets[year][mstatus])[1]>0
         pltTx = bracketsInPlotForm(brackets, year, mstatus);
@@ -156,7 +156,7 @@ gif(anim, "animatedBrackets.gif", fps = 6)
      increments.
 =#
 function plotYear(plt,incomes,year,mstatus)
-    tax1 = rateWithDed(incomes, brackets, dedD, year, mstatus)
+    tax1 = taxRate(incomes, brackets, dedD, year, mstatus)
     plot!(plt,incomes,tax1,label=string(year),linewidth=2.5)
 end
 ytickLabels = (collect(0:20:80), ["0%" "20%" "40%" "60%" "80%"])
@@ -196,9 +196,15 @@ savefig("fortyYearIncrements.png")
 
 
 
+#=
+Functions to export tax data to CSV files for use elsewhere. The data in
+SRW's blog post[1] comes from these files.
+
+[1] https://drafts.interfluidity.com/2024/06/03/the-us-federal-income-tax-in-pictures
+=#
 
 function getRate(year,mstatus,incomes)
-    rate1(income) = rateWithDed(income,brackets, dedD, year,mstatus)
+    rate1(income) = taxRate(income,brackets, dedD, year,mstatus)
     return rate1.(incomes)
 end
 incomes = round.(10 .^collect(3:.1:8));

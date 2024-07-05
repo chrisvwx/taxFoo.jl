@@ -1,40 +1,31 @@
 #=
 To-do
+
+* features to add
+  - medicare and social security
+    https://www.milefoot.com/math/businessmath/taxes/fica.htm
 * compare with taxsim.jl
+  - Is taxsim accurate, or broken?
+  - mb contact taxsim.jl author
 * plots
-  - plot brackets, effective rates, rates from Taxsim.jl
-  - non-inflated rates
-  - inflation implied by tax rates
   - if we treat tax rates as a CDF, what's the PDF of incomes?
-* make a readme
-* commit changes in pub/tax
-* contact taxsim.jl author
 
-Done
-d do package creation tasks
-d change from scanf to some stdlib function
-d move fig generation code to new file, say in taxFoo.jl/incomeTax
-d Init functions which can accept other csv files. 
-  d initBrackets(bracketsFile="brackets.csv")
-  d initCPI(cpiFile="cpi.csv")
-d rate functions
-  d current
-  d another function that accepts income, year, mstatus as inputs
-d inflationLevelBrackets
-d update makeFigures
-d update docs w src
-d create function to return brackets
-  - return income and rate values that can be plotted
-  - use missing or NaN which when plotted will show brackets
-    as line segments
-
-
-Future
+Future features
+* medicare and social security
+    https://www.milefoot.com/math/businessmath/taxes/fica.htm
+* unemployment tax
+* AMT?
+* ? Medicare contribution tax
 * Cap gains rates
   https://www.wolterskluwer.com/en/expert-insights/whole-ball-of-tax-historical-capital-gains-rates
   https://taxfoundation.org/data/all/federal/federal-capital-gains-tax-collections-historical-data/
   https://taxfoundation.org/data/all/federal/federal-capital-gains-tax-rates-1988-2013/
   https://en.wikipedia.org/wiki/Capital_gains_tax_in_the_United_States
+
+Notes on differences between taxFoo.jl and Taxsim
+* the "Maximum tax on earned income" explains diff in 1980 at high incomes
+* 
+
 =#
 module taxFoo
 
@@ -43,32 +34,35 @@ using DelimitedFiles
 export
     initTables,
     firstYear, lastYear,
-    incomeRate,rateWithDed,
+    incomeRate,taxRate,
     inflationCalc,inflationLevelBrackets,inflationLevelDeductions,
     bracketsInPlotForm
 
 """
-    bD,dD,cD = initTables(bracketsFile, deductionsFile, cpiFile)
+    bD,dD,ssD,hiD,cD = initTables(bracketsFile,deductionsFile,ssMedicareFile,cpiFile)
 
-Read income tax brackets, tax deduction, and CPI data into dicts. By default
-tax bracket data comes from taxfoundation.org [1], tax deduction data comes
-from [2][3], and CPI data is from the Minneapolis Fed [4].
+Read income tax brackets, tax deduction, Social Security tax, Medicare tax,
+and CPI data into dicts. By default tax bracket data comes from
+taxfoundation.org [1], tax deduction data comes from [2][3], Social Security
+and Medicare data comes from [4], and CPI data is from the Minneapolis Fed
+[4].  
 
 [1] https://taxfoundation.org/data/all/federal/historical-income-tax-rates-brackets/
 [2] https://www.taxpolicycenter.org/sites/default/files/statistics/pdf/standard_deduction_2.pdf
 [3] https://www.taxnotes.com/research/federal/reference-tables/standard-deduction/1x7yp
-[4] https://www.minneapolisfed.org/about-us/monetary-policy/inflation-calculator/consumer-price-index-1800-
+[4] https://www.taxpolicycenter.org/sites/default/files/statistics/pdf/ssrate_historical_2.pdf
+[5] https://www.minneapolisfed.org/about-us/monetary-policy/inflation-calculator/consumer-price-index-1800-
 
 # Examples
 ```jldoctest
-julia> bD,dD,cD = initTables();
+julia> bD,dD,ssD,hiD,cD = initTables();
 
 julia> tables.cD[1862]
 30.0
 
 ```
 """
-function initTables(bracketsFile="", deductionsFile="", cpiFile="")
+function initTables(bracketsFile="", deductionsFile="", ssMedicareFile="", cpiFile="")
     if bracketsFile==""
         bracketsFile= string(@__DIR__,"/brackets.csv")
     end
@@ -80,13 +74,20 @@ function initTables(bracketsFile="", deductionsFile="", cpiFile="")
     deds = readdlm(deductionsFile,',')
     dedDict = Dict(deds[i,1]=>deds[i,2:end] for i in 1:size(deds)[1])
     
+    if ssMedicareFile==""
+        ssMedicareFile=string(@__DIR__,"/ssMedicare.csv")
+    end
+    ssM = readdlm(ssMedicareFile,',')
+    ssDict = Dict(ssM[i,1]=>ssM[i,2:3] for i in 2:size(ssM)[1])
+    hiDict = Dict(ssM[i,1]=>ssM[i,4:5] for i in 2:size(ssM)[1])
+    
     if cpiFile==""
         cpiFile=string(@__DIR__,"/cpi.csv")
     end
     cpi = readdlm(cpiFile,',')
     cpiDict = Dict(cpi[i,1]=>cpi[i,2] for i in 1:size(cpi)[1])
 
-    return allBrackets, dedDict, cpiDict
+    return allBrackets, dedDict, ssDict, hiDict, cpiDict
 end
 
 
@@ -228,22 +229,41 @@ function incomeRate(income::Vector{Td}, allBrackets, year::Integer,
     return f.(income)
 end
 
-function rateWithDed(income::Real,allBrackets, dedD, year, mstatus)
+function taxRate(income::Real,allBrackets, dedD, year, mstatus;
+                 includeDeduction=true)
+    # if includeSS
+    #     rateSS = .124
+    #     taxSS = income*rateSS
+    # end
+    # if includeHI # Medicare
+    #     rateHI = .029
+    #     taxHI = income*rateHI
+    # end
+
     deduction = 0;
-    if year >=1944 && year < 1970
-        deduction = min(.1 * income,1000)
-    elseif year>=1970
-        deduction = dedD[year][mstatus]
+    incAfterDed = income
+    if includeDeduction
+        if year >=1944 && year < 1970
+            deduction = min(.1 * income,1000)
+        elseif year>=1970
+            deduction = dedD[year][mstatus]
+        end
+        incAfterDed = incAfterDed-deduction
     end
-    incAfterDed = income-deduction
-    incRate = incomeRate(incAfterDed,allBrackets,year,mstatus)
-    tax = incRate*incAfterDed/100
-    return tax/income*100
+    rateIncome = incomeRate(incAfterDed,allBrackets,year,mstatus)
+    taxIncome = rateIncome*incAfterDed/100
+#    return (taxIncome+taxSS+taxHI)/income*100
+    return taxIncome/income*100
 end
-function rateWithDed(incomes::Vector{Td},allBrackets, dedD, year,
+function taxRate(incomes::Vector{Td},allBrackets, dedD, year,
                      mstatus) where {Td<:Real}
-    f(x) = rateWithDed(x,allBrackets, dedD, year, mstatus)
+    f(x) = taxRate(x,allBrackets, dedD, year, mstatus)
     return f.(incomes)
+end
+function taxRate(income::Real,allBrackets, dedD, years::Vector{Td},
+                     mstatus) where {Td<:Real}
+    f(x) = taxRate(income,allBrackets, dedD, x, mstatus)
+    return f.(years)
 end
 
 """

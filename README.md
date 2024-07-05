@@ -16,11 +16,16 @@ rate implied by those brackets without any deductions, the effective
 tax rate with the standard deduction, and finally the effective rate
 from [Taxsim](https://www.nber.org/research/data/taxsim). All data are
 for the filing status "married filing jointly", other filing statuses
-are similar. Taxsim includes other taxes other than the basic income
-tax brackets and deductions (for example FICA taxes), but does not
-provide data earlier than 1960. Taxsim is a wonderful tool which
-we we will continue comparing with and working to understand, but we
-will not use or refer to it in the rest of this README. 
+are similar. Taxsim includes the [Earned income tax
+credit](https://en.wikipedia.org/wiki/Earned_income_tax_credit) (EITC)
+which the other curves do not; this is the reason for the difference
+between the Taxsim curve and the "tax w deduction from taxFoo.jl"
+curve. Taxsim includes many other taxes
+other than the basic income tax brackets and deductions (for example
+FICA taxes), but does not provide data earlier than 1960. Taxsim is a
+wonderful tool which we we will continue comparing with and working to
+understand, but we will not refer to it in the rest of this README.
+
 
 The next figure shows an animation of US income tax from 1862 to 2024,
 with all incomes converted into 2024 dollars using
