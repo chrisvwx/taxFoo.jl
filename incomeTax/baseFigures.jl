@@ -1,29 +1,36 @@
-
 using taxFoo
 using Plots
 using Taxsim
 using DataFrames
 
-allBrackets,deductionsD,ssD,hiD,cpiDict = initTables();
-brackets = inflationLevelBrackets(allBrackets,cpiDict,2024);
-dedD = inflationLevelDeductions(deductionsD,cpiDict,2024);
+function taxsim35rate(incomes,year,mstatus,cpiDict)
+    if year<1960
+        error("Taxsim only works for years >=1960")
+    end
+    map = [2 6 1 1];
+    in = DataFrame(year=year, mstat=map[mstatus], pwages=incomes);
+    out= taxsim35(in);
+    return out.fiitax ./ incomes*100, out.frate
+end
+
+
+brackets,dedD,exeD,ssD,hiD,cpiDict = initTables();
+# leveledBrackets is for plots of statutory brackets in 2024 dollars
+leveledBrackets=inflationLevelBrackets(brackets,cpiDict,2024);
 
 #=   show brackets and effective income tax
 =#
 year = 2023;
 mstatus = 1;
-incomes = round.(10 .^collect(3.4:.005:7.1));
-tax = incomeRate(incomes, allBrackets, year, mstatus);
-taxD = taxRate(incomes, allBrackets, deductionsD, year, mstatus);
-pltTx = bracketsInPlotForm(allBrackets, year, mstatus);
+incomes = round.(10 .^collect(3.9:.005:7.1));
+tax = incomeRate(incomes, brackets, year, mstatus);
+taxD = taxRate(incomes, brackets, dedD, exeD, year, mstatus);
+pltTx = bracketsInPlotForm(brackets, year, mstatus);
 
 map = [2 6 1 1];
-#incPast = inflationCalc(incomes,2024,year,cpiDict);
-incPast = incomes;
-in = DataFrame(year=year, mstat=map[mstatus], pwages=incPast);
+in = DataFrame(year=year, mstat=map[mstatus], pwages=incomes);
 out= taxsim35(in);
-taxsimrate = out.fiitax ./ incPast*100;
-
+taxsimrate = out.fiitax ./ incomes*100;
 
 ytickLabels=([0; 10;12;22;24;32;35;37], ["0%" "10%" "12%" "22%" "24%" "32%" "35%" "37%"])
 xtickLabels = (10 .^collect(4:7), ["\$10k" "\$100k" "\$1M" "\$10M"])
@@ -37,7 +44,7 @@ plt = plot(xscale=:log10,legend_position=:bottomright,
            size=(1080,720),
            xlims=(4e3,1e7),
            widen=true,
-           xlabel="Income (log axis)\n",
+           xlabel="Incomes in "*string(year)*" dollars (log axis)\n",
            ylabel="\nTax rate");
 plot!(plt,pltTx[:,1],pltTx[:,2],label=string(year)*" brackets",linewidth=2.5)
 plot!(plt,incomes,tax,label=string(year)*" tax w/o deduction from taxFoo.jl",linewidth=2.5)
@@ -54,7 +61,7 @@ year = 1970;
 mstatus = 1;
 incomes = round.(10 .^collect(3.5:.01:7.1));
 tax = incomeRate(incomes, brackets, year, mstatus);
-taxD = taxRate(incomes, brackets, dedD, year, mstatus);
+taxD = taxRate(incomes, brackets, dedD, exeD, year, mstatus);
 pltTx = bracketsInPlotForm(brackets, year, mstatus);
 ytickLabels = (collect(0:20:80), ["0%" "20%" "40%" "60%" "80%"])
 xtickLabels = (10 .^collect(4:7), ["\$10k" "\$100k" "\$1M" "\$10M"])
@@ -66,9 +73,9 @@ plt = plot(xscale=:log10,legend_position=:topleft,
            ytickfont =font(14),
            labelfontsize = 14,
            size=(1080,720),
-           xlims=(5e3,1e7),
+           xlims=(5e3,5e6),
            widen=true,
-           xlabel="Incomes in 2024 dollars (log axis)\n",
+           xlabel="Incomes in "*string(year)*" dollars (log axis)\n",
            ylabel="\nTax rate");
 plot!(plt,pltTx[:,1],pltTx[:,2],label=string(year)*" brackets",linewidth=2.5)
 plot!(plt,incomes,tax,label=string(year)*" effective tax w/o deduction",linewidth=2.5)
@@ -83,10 +90,10 @@ plot!(plt,incomes,taxD,label=string(year)*" effective tax with deduction",linewi
 =#
 year = 2024
 incomes = round.(10 .^collect(3.5:.1:7.5));
-tax1 = taxRate(incomes, brackets, dedD, year, 1)
-tax2 = taxRate(incomes, brackets, dedD, year, 2)
-tax3 = taxRate(incomes, brackets, dedD, year, 3)
-tax4 = taxRate(incomes, brackets, dedD, year, 4)
+tax1 = taxRate(incomes, brackets, dedD, exeD, year, 1)
+tax2 = taxRate(incomes, brackets, dedD, exeD, year, 2)
+tax3 = taxRate(incomes, brackets, dedD, exeD, year, 3)
+tax4 = taxRate(incomes, brackets, dedD, exeD, year, 4)
 #plt = plot(xscale=:log10,legend_position=false);
 plt = plot(xscale=:log10);
 plot!(plt,incomes,tax1,linecolor=:blue,label="MfJ")
@@ -99,16 +106,18 @@ plot!(plt,incomes,tax4,linecolor=:black,label="HoH")
 
 #=   Animated GIF showing US income tax rates from 1862 to 2024
 =#
-function plotYearAnim(year,mstatus)
-    tax1 = incomeRate(incomes, brackets, year, mstatus);
-    if year>=1944
-        taxD = taxRate(incomes, brackets, dedD, year, mstatus);
-    end
-    if size(brackets[year][mstatus])[1]>0
-        pltTx = bracketsInPlotForm(brackets, year, mstatus);
+function plotYearAnim(year,mstatus,incomes)
+    incomeAdj = inflationCalc(incomes,2024,year,cpiDict)
+    # tax1 = incomeRate(incomeAdj, brackets, year, mstatus);
+    taxD = taxRate(incomeAdj, brackets, dedD, exeD, year, mstatus);
+    # if year>=1944
+    #     taxD = taxRate(incomeAdj, brackets, dedD, exeD, year, mstatus);
+    # end
+    if size(leveledBrackets[year][mstatus])[1]>0
+        pltTx = bracketsInPlotForm(leveledBrackets, year, mstatus);
     end
 
-    plt = plot(xscale=:log10,legend_position=:topright,
+    plt = plot(xscale=:log10,legend_position=:topleft,
                xticks = xtickLabels,
                yticks = ytickLabels,
                xtickfont =font(14),
@@ -117,38 +126,47 @@ function plotYearAnim(year,mstatus)
                labelfontsize = 14,
                size=(1080,720),
                widen=true,
-               xlims=(9e3,1e7),
-               ylims=(0,90),
-               xlabel="Incomes in 2024 dollars\n",
+               xlims=(4e3,4e7),
+               ylims=(-15,90),
+               xlabel="Wage income in 2024 dollars\n",
                ylabel="\nTax rate");
     if size(brackets[year][mstatus])[1]>0
-        plot!(plt,pltTx[:,1],pltTx[:,2],label=string(year)*" brackets",
+        # plot!(plt,pltTx[:,1],pltTx[:,2],label=string(year)*" brackets",
+        #       linewidth=2.5,linecolor=:blue)
+        plot!(plt,pltTx[:,1],pltTx[:,2],label="base brackets",
               linewidth=2.5,linecolor=:blue)
     end
-    if year>=1944
-        plot!(plt,incomes,tax1, linewidth=2.5,label=" w/o deduction",linecolor=:red)
-        plot!(plt,incomes,taxD, linewidth=2.5,label=" w/ std deduction",
-              linecolor=:green)
-    else
-        plot!(plt,incomes,tax1, linewidth=2.5,label=" effective tax",linecolor=:red)
+    plot!(plt,incomes,taxD, linewidth=2.5,label="taxFoo.jl")
+    # if year>=1944
+    #     plot!(plt,incomes,tax1, linewidth=2.5,label=" w/o deduction",linecolor=:red)
+    #     plot!(plt,incomes,taxD, linewidth=2.5,label=" w/ std deduction",
+    #           linecolor=:green)
+    # else
+    #     plot!(plt,incomes,tax1, linewidth=2.5,label=" effective tax",linecolor=:red)
+    # end
+    if year>=1960
+        taxsimR,frate = taxsim35rate(incomeAdj,year,mstatus,cpiDict);
+        plot!(plt,incomes,taxsimR, linewidth=2.5,label="Taxsim v35")
     end
-    annotate!(plt,4e4, 80, string(year), font(48))
+    
+    annotate!(plt,15000, 60, string(year), font(48))
 end
-incomes = round.(10 .^collect(3.9:.1:7.1));
-xtickLabels = (10 .^collect(3:7), ["\$1k" "\$10k" "\$100k" "\$1M" "\$10M"])
+mstatus=1
+incomes = round.(10 .^collect(3.4:.1:7.4));
+xtickLabels = (10 .^collect(4:7), ["\$10k" "\$100k" "\$1M" "\$10M"])
 ytickLabels = (collect(0:20:80), ["0%" "20%" "40%" "60%" "80%"])
 yearBeg = firstYear(brackets)
 yearEnd = lastYear(brackets)
 anim = Animation()
 for year=yearBeg:yearEnd
-    plotYearAnim(year,1)
+    plotYearAnim(year,mstatus,incomes)
     frame(anim)
 end
 plot(legend=false,grid=false,foreground_color_subplot=:white,size=(1080,720))  
 frame(anim)
 frame(anim)
 frame(anim)
-gif(anim, "animatedBrackets.gif", fps = 6)
+gif(anim, "animatedBrackets.gif", fps = 5)
 
 
 
@@ -156,7 +174,7 @@ gif(anim, "animatedBrackets.gif", fps = 6)
      increments.
 =#
 function plotYear(plt,incomes,year,mstatus)
-    tax1 = taxRate(incomes, brackets, dedD, year, mstatus)
+    tax1 = taxRate(incomes, brackets, dedD, exeD, year, mstatus)
     plot!(plt,incomes,tax1,label=string(year),linewidth=2.5)
 end
 ytickLabels = (collect(0:20:80), ["0%" "20%" "40%" "60%" "80%"])
@@ -204,7 +222,7 @@ SRW's blog post[1] comes from these files.
 =#
 
 function getRate(year,mstatus,incomes)
-    rate1(income) = taxRate(income,brackets, dedD, year,mstatus)
+    rate1(income) = taxRate(income,brackets, dedD, exeD, year,mstatus)
     return rate1.(incomes)
 end
 incomes = round.(10 .^collect(3:.1:8));

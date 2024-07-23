@@ -2,15 +2,22 @@
 To-do
 
 * features to add
-  - medicare and social security
-    https://www.milefoot.com/math/businessmath/taxes/fica.htm
-* compare with taxsim.jl
-  - Is taxsim accurate, or broken?
-  - mb contact taxsim.jl author
+  - Documentation about Exemptions
+      https://www.irs.gov/statistics/soi-tax-stats-historical-table-23
+    for data in better format:
+    https://www.taxpolicycenter.org/statistics/historical-individual-income-tax-parameters
+     CSV version of this file is in src/exemptions.csv
+  - Merge basefigs.jl, taxSimFigs.jl
+  - put taxSim into animation on github after 1962
+  - update taxFoo.jl on github
 * plots
   - if we treat tax rates as a CDF, what's the PDF of incomes?
 
 Future features
+* EITC
+* the "Maximum tax on earned income" (explains diff in 1980 at high incomes
+  between taxFoo.jl and Taxsim)
+      https://www.law.cornell.edu/cfr/text/26/1.1348-2
 * medicare and social security
     https://www.milefoot.com/math/businessmath/taxes/fica.htm
 * unemployment tax
@@ -22,9 +29,10 @@ Future features
   https://taxfoundation.org/data/all/federal/federal-capital-gains-tax-rates-1988-2013/
   https://en.wikipedia.org/wiki/Capital_gains_tax_in_the_United_States
 
-Notes on differences between taxFoo.jl and Taxsim
-* the "Maximum tax on earned income" explains diff in 1980 at high incomes
-* 
+Questions for Daniel F (Taxsim guy)
+* What tax is causing effective tax to go above the highest bracket in 1968?
+* Have you had any thoughts of adding things before 1960?
+* What's the status of putting Taxsim on Github?
 
 =#
 module taxFoo
@@ -35,17 +43,21 @@ export
     initTables,
     firstYear, lastYear,
     incomeRate,taxRate,
-    inflationCalc,inflationLevelBrackets,inflationLevelDeductions,
+    inflationCalc,inflationLevelBrackets,
     bracketsInPlotForm
 
 """
-    bD,dD,ssD,hiD,cD = initTables(bracketsFile,deductionsFile,ssMedicareFile,cpiFile)
+    bD,dD,ssD,hiD,cD = initTables()
 
 Read income tax brackets, tax deduction, Social Security tax, Medicare tax,
-and CPI data into dicts. By default tax bracket data comes from
-taxfoundation.org [1], tax deduction data comes from [2][3], Social Security
-and Medicare data comes from [4], and CPI data is from the Minneapolis Fed
-[4].  
+and CPI data into dicts from default CSV files contained alongside the
+source code. Tax bracket data comes from taxfoundation.org [1], tax
+deduction data comes from [2][3], Social Security and Medicare data comes
+from [4], and CPI data is from the Minneapolis Fed [4].
+
+'initTables' is tuned to the specific CSV files shipped alongside this code,
+and would need to be carefully tuned for other files. I.e. this function is
+pretty fragile (like the rest of taxFoo? :-).
 
 [1] https://taxfoundation.org/data/all/federal/historical-income-tax-rates-brackets/
 [2] https://www.taxpolicycenter.org/sites/default/files/statistics/pdf/standard_deduction_2.pdf
@@ -62,32 +74,28 @@ julia> tables.cD[1862]
 
 ```
 """
-function initTables(bracketsFile="", deductionsFile="", ssMedicareFile="", cpiFile="")
-    if bracketsFile==""
-        bracketsFile= string(@__DIR__,"/brackets.csv")
-    end
+function initTables()
+    bracketsFile= string(@__DIR__,"/brackets.csv")
     allBrackets = initBrackets(bracketsFile)
     
-    if deductionsFile==""
-        deductionsFile=string(@__DIR__,"/deductions.csv")
-    end
+    deductionsFile=string(@__DIR__,"/deductions.csv")
     deds = readdlm(deductionsFile,',')
-    dedDict = Dict(deds[i,1]=>deds[i,2:end] for i in 1:size(deds)[1])
+    dedDict = Dict(deds[i,1]=>deds[i,2:end] for i in 2:size(deds)[1])
     
-    if ssMedicareFile==""
-        ssMedicareFile=string(@__DIR__,"/ssMedicare.csv")
-    end
+    exemptionsFile=string(@__DIR__,"/exemptions.csv")
+    exes = readdlm(exemptionsFile,',')
+    exmpDict = Dict(exes[i,1]=>exes[i,2:end] for i in 4:size(exes)[1]-4)
+    
+    ssMedicareFile=string(@__DIR__,"/ssMedicare.csv")
     ssM = readdlm(ssMedicareFile,',')
     ssDict = Dict(ssM[i,1]=>ssM[i,2:3] for i in 2:size(ssM)[1])
     hiDict = Dict(ssM[i,1]=>ssM[i,4:5] for i in 2:size(ssM)[1])
     
-    if cpiFile==""
-        cpiFile=string(@__DIR__,"/cpi.csv")
-    end
+    cpiFile=string(@__DIR__,"/cpi.csv")
     cpi = readdlm(cpiFile,',')
     cpiDict = Dict(cpi[i,1]=>cpi[i,2] for i in 1:size(cpi)[1])
 
-    return allBrackets, dedDict, ssDict, hiDict, cpiDict
+    return allBrackets, dedDict, exmpDict, ssDict, hiDict, cpiDict
 end
 
 
@@ -229,8 +237,8 @@ function incomeRate(income::Vector{Td}, allBrackets, year::Integer,
     return f.(income)
 end
 
-function taxRate(income::Real,allBrackets, dedD, year, mstatus;
-                 includeDeduction=true)
+function taxRate(income::Real,allBrackets, dedD, exeD, year, mstatus;
+                 includeDeductions=true,includeExemptions=true)
     # if includeSS
     #     rateSS = .124
     #     taxSS = income*rateSS
@@ -240,9 +248,9 @@ function taxRate(income::Real,allBrackets, dedD, year, mstatus;
     #     taxHI = income*rateHI
     # end
 
-    deduction = 0;
     incAfterDed = income
-    if includeDeduction
+    if includeDeductions
+        deduction = 0;
         if year >=1944 && year < 1970
             deduction = min(.1 * income,1000)
         elseif year>=1970
@@ -250,19 +258,24 @@ function taxRate(income::Real,allBrackets, dedD, year, mstatus;
         end
         incAfterDed = incAfterDed-deduction
     end
+    if includeExemptions && year >=1913 && year < 2018
+        mstatusMap = [2 2 1 1] # Needs confirming for HOH
+        exemption = exeD[year][mstatusMap[mstatus]]
+        incAfterDed = incAfterDed-exemption
+    end
     rateIncome = incomeRate(incAfterDed,allBrackets,year,mstatus)
     taxIncome = rateIncome*incAfterDed/100
 #    return (taxIncome+taxSS+taxHI)/income*100
     return taxIncome/income*100
 end
-function taxRate(incomes::Vector{Td},allBrackets, dedD, year,
+function taxRate(incomes::Vector{Td},allBrackets, dedD, exeD, year,
                      mstatus) where {Td<:Real}
-    f(x) = taxRate(x,allBrackets, dedD, year, mstatus)
+    f(x) = taxRate(x,allBrackets, dedD, exeD, year, mstatus)
     return f.(incomes)
 end
-function taxRate(income::Real,allBrackets, dedD, years::Vector{Td},
+function taxRate(income::Real,allBrackets, dedD, exeD, years::Vector{Td},
                      mstatus) where {Td<:Real}
-    f(x) = taxRate(income,allBrackets, dedD, x, mstatus)
+    f(x) = taxRate(income,allBrackets, dedD, exeD, x, mstatus)
     return f.(years)
 end
 
@@ -329,16 +342,6 @@ function inflationLevelBrackets(allBrackets,cpiDict,targetYear)
         end
     end
     return leveledBrackets
-end
-function inflationLevelDeductions(dedD,cpiDict,targetYear)
-    leveledDeductions = deepcopy(dedD)
-    firstYear = Integer(minimum(keys(dedD)))
-    lastYear = Integer(maximum(keys(dedD)))
-    for year = firstYear:lastYear
-        levelCalc(price) = inflationCalc(price,year,targetYear,cpiDict)
-        leveledDeductions[year][:] = levelCalc.(leveledDeductions[year][:])
-    end
-    return leveledDeductions
 end
 
 
