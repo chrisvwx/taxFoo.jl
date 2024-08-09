@@ -5,7 +5,7 @@ Using data from
 [taxfoundation.org](https://taxfoundation.org/data/all/federal/historical-income-tax-rates-brackets/)
 and other sources, this package provides a few tools to inspect
 historical US income tax brackets and standard deductions.  The
-initial goal of this package was the following rough visualizations of
+initial goal was the following rough visualizations of
 tax rates back to 1862.  The code and data were put together into a
 Julia package to show how the plots were produced. There may be
 errors; use with caution!
@@ -44,7 +44,6 @@ Taxsim.
 For 1960-63 (and a few other years) the "taxFoo.jl" and "Taxsim"
 curves are the same, giving some confidence to taxFoo estimates prior
 to 1960. We will continue to look at the differences between taxFoo.jl
-and Taxsim calculatios, nevertheless our focus will be on years before
-1960, when Taxsim does not provide any results.
+and Taxsim calculations with the goal of a rough understanding of 
+US income tax before and after 1960.
 
-All the figures above assume a "Married filing Jointly" status.
