@@ -23,27 +23,30 @@ curve at low incomes.
 
 ![Brackets and Taxsim](incomeTax/2023bracketsAndTaxsim.png)
 
-In other years and scenarios, the other taxes and tools that Taxsim
-includes make larger differences, for example the [maximum tax on
-earned income](https://www.law.cornell.edu/cfr/text/26/1.1348-2) used
-in the 70s and 80s, tax exemptions, and FICA taxes are all
-implemented by Taxsim but not by taxFoo.jl. Unfortunately Taxsim does
-not provide taxes for years earlier than 1960; one goal of this
-package is to look as far back as 1862.
+One conclusion from the figure above might be to simply use Taxsim to
+look at US tax rates; unfortunately Taxsim does not provide taxes for
+years earlier than 1960. The tax structure is has become more complex
+over time, if we can get taxFoo.jl to match Taxsim in 1960, this will
+give some confidence that it would match in prior years. The figure
+below shows that indeed we do match Taxsim in 1960; it also shows that
+we match Taxsim if we include FICA (Social Security and Medicare)
+taxes.
+
+![1960s income and FICA taxes](incomeTax/1960bracketsAndTaxsimFICA.png)
 
 The next figure shows an animation of US income tax from 1862 to 2024,
 with all incomes converted into 2024 dollars using [CPI
 data](https://www.minneapolisfed.org/about-us/monetary-policy/inflation-calculator/consumer-price-index-1800-)
 from the Minneapolis Fed. In years where there is an income tax, the
-base tax brackets are shown, as well as the effective rate with
-deductions (labeled "taxFoo.jl"), and (after 1960) the rate from
-Taxsim. 
+base tax brackets are shown. Before 1960 the effective rate (with
+deductions) from taxFoo.jl is shown, and after 1960, the rate from
+Taxsim is shown. Starting in 1937, we also show the tax rate including
+FICA taxes.
 
-![Animated tax brackts](incomeTax/animatedBrackets.gif)
+![Animated tax brackets](incomeTax/animatedTotal.gif)
 
-For 1960-63 (and a few other years) the "taxFoo.jl" and "Taxsim"
-curves are the same, giving some confidence to taxFoo estimates prior
-to 1960. We will continue to look at the differences between taxFoo.jl
-and Taxsim calculations with the goal of a rough understanding of 
-US income tax before and after 1960.
+Taxsim is a much more powerful and respected tool, and we would love
+to have data prior to 1960 from it. Even so, we believe that taxFoo.jl
+is a useful tool to inspect the tax rate in these early years of the
+income tax.
 

@@ -2,16 +2,16 @@
 To-do
 
 * features to add
-  - Documentation about Exemptions
+  - add FICA (ss,medicare)
+  - add Documentation about Exemptions
       https://www.irs.gov/statistics/soi-tax-stats-historical-table-23
     for data in better format:
     https://www.taxpolicycenter.org/statistics/historical-individual-income-tax-parameters
      CSV version of this file is in src/exemptions.csv
-  - Merge basefigs.jl, taxSimFigs.jl
-  - put taxSim into animation on github after 1962
-  - update taxFoo.jl on github
 * plots
   - if we treat tax rates as a CDF, what's the PDF of incomes?
+  - SS,medicare cut off incomes
+  - number of brackets
 
 Future features
 * EITC
@@ -33,6 +33,7 @@ Questions for Daniel F (Taxsim guy)
 * What tax is causing effective tax to go above the highest bracket in 1968?
 * Have you had any thoughts of adding things before 1960?
 * What's the status of putting Taxsim on Github?
+* 
 
 =#
 module taxFoo
@@ -42,12 +43,21 @@ using DelimitedFiles
 export
     initTables,
     firstYear, lastYear,
-    incomeRate,taxRate,
+    incomeRate,taxRate,ficaRate,
     inflationCalc,inflationLevelBrackets,
     bracketsInPlotForm
 
+struct taxTables
+    brackets::Dict{Int64, Dict{Int64, Matrix{Float64}}}
+    dedDict::Dict{Int64, Vector{Any}}
+    exeDict::Dict{Int64, Vector{Any}}
+    ssDict::Dict{Int64, Vector{Any}}
+    hiDict::Dict{Int64, Vector{Any}}
+    cpiDict::Dict{Int64, Float64}
+end
+
 """
-    bD,dD,ssD,hiD,cD = initTables()
+    tables = initTables()
 
 Read income tax brackets, tax deduction, Social Security tax, Medicare tax,
 and CPI data into dicts from default CSV files contained alongside the
@@ -55,9 +65,10 @@ source code. Tax bracket data comes from taxfoundation.org [1], tax
 deduction data comes from [2][3], Social Security and Medicare data comes
 from [4], and CPI data is from the Minneapolis Fed [4].
 
-'initTables' is tuned to the specific CSV files shipped alongside this code,
-and would need to be carefully tuned for other files. I.e. this function is
-pretty fragile (like the rest of taxFoo? :-).
+'initTables' is tuned to the idiosyncracies of the specific CSV files
+shipped alongside this code, and would need care to be changed for other
+files. I.e. this function is pretty fragile (like the rest of taxFoo :-), so
+no API for using other CSV files is exposed.
 
 [1] https://taxfoundation.org/data/all/federal/historical-income-tax-rates-brackets/
 [2] https://www.taxpolicycenter.org/sites/default/files/statistics/pdf/standard_deduction_2.pdf
@@ -67,9 +78,9 @@ pretty fragile (like the rest of taxFoo? :-).
 
 # Examples
 ```jldoctest
-julia> bD,dD,ssD,hiD,cD = initTables();
+julia> tables = initTables();
 
-julia> tables.cD[1862]
+julia> tables.cpiDict[1862]
 30.0
 
 ```
@@ -93,9 +104,10 @@ function initTables()
     
     cpiFile=string(@__DIR__,"/cpi.csv")
     cpi = readdlm(cpiFile,',')
-    cpiDict = Dict(cpi[i,1]=>cpi[i,2] for i in 1:size(cpi)[1])
+    cpiDict = Dict(Integer(cpi[i,1])=>cpi[i,2] for i in 1:size(cpi)[1])
 
-    return allBrackets, dedDict, exmpDict, ssDict, hiDict, cpiDict
+    tables = taxTables(allBrackets,dedDict,exmpDict,ssDict,hiDict,cpiDict)
+    return tables
 end
 
 
@@ -237,47 +249,73 @@ function incomeRate(income::Vector{Td}, allBrackets, year::Integer,
     return f.(income)
 end
 
-function taxRate(income::Real,allBrackets, dedD, exeD, year, mstatus;
+function taxRate(income::Real, tables::taxTables, year, mstatus;
                  includeDeductions=true,includeExemptions=true)
-    # if includeSS
-    #     rateSS = .124
-    #     taxSS = income*rateSS
-    # end
-    # if includeHI # Medicare
-    #     rateHI = .029
-    #     taxHI = income*rateHI
-    # end
-
     incAfterDed = income
     if includeDeductions
         deduction = 0;
         if year >=1944 && year < 1970
             deduction = min(.1 * income,1000)
         elseif year>=1970
-            deduction = dedD[year][mstatus]
+            deduction = tables.dedDict[year][mstatus]
         end
         incAfterDed = incAfterDed-deduction
     end
     if includeExemptions && year >=1913 && year < 2018
         mstatusMap = [2 2 1 1] # Needs confirming for HOH
-        exemption = exeD[year][mstatusMap[mstatus]]
+        exemption = tables.exeDict[year][mstatusMap[mstatus]]
         incAfterDed = incAfterDed-exemption
     end
-    rateIncome = incomeRate(incAfterDed,allBrackets,year,mstatus)
-    taxIncome = rateIncome*incAfterDed/100
-#    return (taxIncome+taxSS+taxHI)/income*100
+    incomeTaxRate = incomeRate(incAfterDed,tables.brackets,year,mstatus)
+    taxIncome = incomeTaxRate*incAfterDed/100
     return taxIncome/income*100
 end
-function taxRate(incomes::Vector{Td},allBrackets, dedD, exeD, year,
-                     mstatus) where {Td<:Real}
-    f(x) = taxRate(x,allBrackets, dedD, exeD, year, mstatus)
+function taxRate(incomes::Vector{Td},tables,year,mstatus) where {Td<:Real}
+    f(x) = taxRate(x,tables, year, mstatus)
     return f.(incomes)
 end
-function taxRate(income::Real,allBrackets, dedD, exeD, years::Vector{Td},
-                     mstatus) where {Td<:Real}
-    f(x) = taxRate(income,allBrackets, dedD, exeD, x, mstatus)
+function taxRate(income::Real,tables,years::Vector{Td}, mstatus) where {Td<:Real}
+    f(x) = taxRate(income, tables, x, mstatus)
     return f.(years)
 end
+
+
+function ficaRate(income::Real, tables::taxTables, year, mstatus)
+    if year >=1937
+        maxSS = tables.ssDict[year][1]
+        rateSS = tables.ssDict[year][2]
+        if income<maxSS
+            taxSS = income*rateSS
+        else
+            taxSS = maxSS*rateSS
+        end
+        maxHI = tables.hiDict[year][1]
+        rateHI = tables.hiDict[year][2]
+        if income<maxHI
+            taxHI = income*rateHI
+        else
+            taxHI = maxSS*rateHI
+        end
+    else
+        taxSS = 0
+        taxHI = 0
+    end
+
+    incomeTaxRate = taxRate(income,tables,year,mstatus)
+    taxIncome = incomeTaxRate/100 *income
+    ficaRate = (taxIncome+taxSS+taxHI)/income*100
+    return ficaRate
+end
+function ficaRate(incomes::Vector{Td},tables,year,mstatus) where {Td<:Real}
+    f(x) = ficaRate(x,tables, year, mstatus)
+    return f.(incomes)
+end
+function ficaRate(income::Real,tables,years::Vector{Td}, mstatus) where {Td<:Real}
+    f(x) = ficaRate(income, tables, x, mstatus)
+    return f.(years)
+end
+
+
 
 """
     inflationCalc(price1,year1,year2,cpiDict)
